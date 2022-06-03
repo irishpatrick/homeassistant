@@ -7,6 +7,9 @@ import time
 def main():
     sensors.setup()
 
+    integration.get_config()
+    integration.register_device()
+
     sensors.teardown()
 
 if __name__ == "__main__":
