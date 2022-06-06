@@ -3,6 +3,8 @@
 import json
 import requests
 import os
+import nacl.secret
+import nacl.utils
 
 TESTTOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiI4ZjEzZDhmOGQ3ODU0YjhjYjY3YTg3NmMyYzQ0N2VmMSIsImlhdCI6MTY1NDI2NTU0NSwiZXhwIjoxOTY5NjI1NTQ1fQ.duglwhtB4sqyKU4NdSYNZjE_5mhVRJ8Pn5D4hCmoYa0"
 LONGTOKEN = "HASS_LL_TOKEN"
@@ -12,24 +14,6 @@ try:
     TESTING = os.environ["TEST"]
 except:
     TESTING = False
-
-class Hook:
-    def __init__(self, obj):
-        self.cloudhook_url = None
-        self.remote_ui_url = None
-        self.secret = None
-        self.webhook_id = None
-
-        if len(obj) > 0:
-            self.extract_data(obj)
-
-    def extract_data(self, obj):
-        data = json.loads(obj)
-
-        self.cloudhook_url = data.cloudhook_url
-        self.remote_ui_url = data.remote_ui_url
-        self.secret = data.secret
-        self.webhook_id = data.webhook_id
 
 def get_endpoint(endpt):
     return "http://{}:{}{}".format(ADDR, PORT, endpt)
@@ -48,11 +32,7 @@ def get_config():
 
     response = requests.request("GET", url, headers=headers)
 
-    print(response.text)
-
 def register_device():
-    # TODO check if device already registered, and skip if so
-
     url = get_endpoint("/api/mobile_app/registrations")
     headers = build_header()
     data = {
@@ -73,4 +53,20 @@ def register_device():
 
     response = requests.request("POST", url, json=data, headers=headers)
 
-    return Hook(response.text)
+    return response.text
+
+def send_encrypted_data(data, reg):
+    packet = {}
+    
+    message = bytes(json.dumps(data), "utf-8")
+    print(len(reg.get_secret()))
+    box = nacl.secret.SecretBox(reg.get_secret())
+    cipher = box.encrypt(message)
+
+    packet["type"] = "encrypted"
+    packet["encrypted"] = True
+    packet["encrypted_data"] = cipher
+
+    response = requests.request("POST", reg.get_webhook_url(), json=packet)
+
+    print(response.text)

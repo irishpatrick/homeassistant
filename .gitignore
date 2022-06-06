@@ -1,3 +1,4 @@
 config/*
 !config/README.md
 **/__pycache__/*
+satellite/integration
